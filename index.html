@@ -224,9 +224,11 @@
   #prev-logo { font-weight: 500; font-size: 16px; }
   #prev-navbar .nav-links { display: flex; gap: 18px; font-size: 13px; }
   #prev-hero { padding: 40px 22px; text-align: center; }
+  #prev-badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; margin-bottom: 12px; }
   #prev-h1 { font-size: 26px; font-weight: 500; margin-bottom: 8px; }
   #prev-sub { font-size: 14px; margin-bottom: 18px; }
   #prev-btn-primary { padding: 9px 22px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; }
+  #prev-btn-secondary { padding: 9px 22px; font-size: 14px; font-weight: 500; cursor: pointer; background: transparent; }
   #prev-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 22px; }
   .prev-card-accent { width: 24px; height: 3px; border-radius: 2px; margin-bottom: 10px; }
   .prev-card-title { font-weight: 500; font-size: 15px; margin-bottom: 4px; }
@@ -475,9 +477,13 @@
             <div class="nav-links"><span>Home</span><span>About</span><span>Services</span><span>Contact</span></div>
           </div>
           <div id="prev-hero">
+            <div id="prev-badge">New</div>
             <div id="prev-h1">Build something great</div>
             <div id="prev-sub">A theme generated from your brand, ready in seconds.</div>
-            <button id="prev-btn-primary">Get started</button>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+              <button id="prev-btn-primary">Get started</button>
+              <button id="prev-btn-secondary">Learn more</button>
+            </div>
           </div>
           <div id="prev-cards"></div>
           <div id="prev-footer">© 2026 Brand. All rights reserved.</div>
@@ -970,9 +976,11 @@ function renderPreview() {
   const navbar = document.getElementById('prev-navbar');
   const logo = document.getElementById('prev-logo');
   const hero = document.getElementById('prev-hero');
+  const badge = document.getElementById('prev-badge');
   const h1 = document.getElementById('prev-h1');
   const sub = document.getElementById('prev-sub');
   const btn = document.getElementById('prev-btn-primary');
+  const btnSecondary = document.getElementById('prev-btn-secondary');
   const cards = document.getElementById('prev-cards');
   const footer = document.getElementById('prev-footer');
 
@@ -988,10 +996,19 @@ function renderPreview() {
   sub.style.fontFamily = v.body;
   sub.style.color = v.textSecondary;
 
+  badge.style.background = v.secondary;
+  badge.style.color = contrastText(v.secondary);
+  badge.style.fontFamily = v.body;
+
   btn.style.background = v.primary;
   btn.style.color = contrastText(v.primary);
   btn.style.borderRadius = v.radius;
   btn.style.fontFamily = v.body;
+
+  btnSecondary.style.border = `1.5px solid ${v.secondary}`;
+  btnSecondary.style.color = v.secondary;
+  btnSecondary.style.borderRadius = v.radius;
+  btnSecondary.style.fontFamily = v.body;
 
   cards.innerHTML = '';
   ['Design', 'Build', 'Launch'].forEach((title, i) => {
