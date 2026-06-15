@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -440,10 +441,25 @@
         <input type="file" id="logo-upload" accept="image/*" style="display:none;" />
       </label>
 
-      <div id="brand-color-row" style="display:none; align-items:center; gap:12px; margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--radius); background:var(--bg);">
-        <input type="checkbox" id="use-custom-color" style="width:16px; height:16px; cursor:pointer;" />
-        <label for="use-custom-color" style="font-size:13px; flex:1; cursor:pointer;">Use my own brand color instead of the extracted one</label>
-        <input type="color" id="custom-color-picker" value="#534AB7" disabled style="width:40px; height:32px; padding:2px; cursor:pointer;" />
+      <div id="brand-color-row" style="display:none; flex-direction:column; gap:12px; margin-top:14px; padding:14px 16px; border:1px solid var(--line); border-radius:var(--radius); background:var(--bg);">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="checkbox" id="use-custom-color" style="width:16px; height:16px; cursor:pointer;" />
+          <label for="use-custom-color" style="font-size:13px; flex:1; cursor:pointer;">Use my own colors instead of the extracted ones</label>
+        </div>
+        <div id="custom-color-controls" style="display:none; flex-direction:column; gap:10px; padding-left:28px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <label for="custom-color-picker" style="font-size:13px; width:110px;">Primary color</label>
+            <input type="color" id="custom-color-picker" value="#534AB7" style="width:40px; height:32px; padding:2px; cursor:pointer;" />
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <label for="custom-secondary-picker" style="font-size:13px; width:110px;">Secondary color</label>
+            <input type="color" id="custom-secondary-picker" value="#1D9E75" style="width:40px; height:32px; padding:2px; cursor:pointer;" />
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="checkbox" id="force-neutral-bw" style="width:16px; height:16px; cursor:pointer;" />
+            <label for="force-neutral-bw" style="font-size:13px; cursor:pointer;">Keep backgrounds and surfaces pure black &amp; white (no color tint)</label>
+          </div>
+        </div>
       </div>
 
       <div id="variations-section">
@@ -573,7 +589,10 @@ const FONT_PAIRS = [
 
 const brandColorRow = document.getElementById('brand-color-row');
 const useCustomColor = document.getElementById('use-custom-color');
+const customColorControls = document.getElementById('custom-color-controls');
 const customColorPicker = document.getElementById('custom-color-picker');
+const customSecondaryPicker = document.getElementById('custom-secondary-picker');
+const forceNeutralBw = document.getElementById('force-neutral-bw');
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -605,15 +624,17 @@ function handleFile(file) {
     const { colors, mode } = extractColors(img);
     lastExtraction = { colors, mode };
 
-    // Default the custom picker to the extracted primary so it starts near the logo's color
+    // Default the custom pickers to the extracted primary/secondary so they start near the logo's colors
     const sortedBySat = [...colors].sort((a,b) => {
       const sa = rgbToHsl(hexToRgb(a).r, hexToRgb(a).g, hexToRgb(a).b).s;
       const sb = rgbToHsl(hexToRgb(b).r, hexToRgb(b).g, hexToRgb(b).b).s;
       return sb - sa;
     });
     customColorPicker.value = mode === 'grayscale' ? '#534AB7' : (sortedBySat[0] || '#534AB7');
+    customSecondaryPicker.value = mode === 'grayscale' ? '#1D9E75' : (sortedBySat[1] || rotateHue(customColorPicker.value, 35));
     useCustomColor.checked = false;
-    customColorPicker.disabled = true;
+    customColorControls.style.display = 'none';
+    forceNeutralBw.checked = false;
     brandColorRow.style.display = 'flex';
 
     regenerateTheme();
@@ -624,14 +645,20 @@ function handleFile(file) {
 function regenerateTheme() {
   if (!lastExtraction) return;
   let { colors, mode } = lastExtraction;
+  let secondaryOverride = null;
+  let primaryOverride = null;
+  let neutralLock = false;
 
   if (useCustomColor.checked) {
-    // Override: seed everything from the user's chosen brand color
-    colors = [customColorPicker.value, ...colors.slice(1)];
+    // Override: use the user's chosen primary + secondary colors exactly
+    colors = [customColorPicker.value, customSecondaryPicker.value];
+    primaryOverride = customColorPicker.value;
+    secondaryOverride = customSecondaryPicker.value;
     mode = 'normal';
+    neutralLock = forceNeutralBw.checked;
   }
 
-  const variations = buildVariations(colors, mode);
+  const variations = buildVariations(colors, mode, { primaryOverride, secondaryOverride, neutralLock });
   renderVariations(variations);
   showExtractionNote(useCustomColor.checked ? 'custom' : mode);
   variationsSection.style.display = 'block';
@@ -639,7 +666,7 @@ function regenerateTheme() {
 }
 
 useCustomColor.addEventListener('change', () => {
-  customColorPicker.disabled = !useCustomColor.checked;
+  customColorControls.style.display = useCustomColor.checked ? 'flex' : 'none';
   regenerateTheme();
 });
 
@@ -647,14 +674,24 @@ customColorPicker.addEventListener('input', () => {
   if (useCustomColor.checked) regenerateTheme();
 });
 
+customSecondaryPicker.addEventListener('input', () => {
+  if (useCustomColor.checked) regenerateTheme();
+});
+
+forceNeutralBw.addEventListener('change', () => {
+  if (useCustomColor.checked) regenerateTheme();
+});
+
 function showExtractionNote(mode) {
   const note = document.getElementById('extraction-note');
   if (!note) return;
   if (mode === 'custom') {
-    note.textContent = "Using your chosen brand color as the base for this theme.";
+    note.textContent = forceNeutralBw.checked
+      ? "Using your chosen colors, with backgrounds and surfaces kept pure black & white."
+      : "Using your chosen colors as the base for this theme.";
     note.style.display = 'block';
   } else if (mode === 'grayscale') {
-    note.textContent = "Your logo is black & white, so we've generated a neutral theme with a complementary accent color. Prefer your own accent? Use the brand color option above.";
+    note.textContent = "Your logo is black & white, so we've generated a neutral theme with a complementary accent color. Want full control? Use the color options above.";
     note.style.display = 'block';
   } else if (mode === 'fallback') {
     note.textContent = "We couldn't detect strong colors in your logo, so here's a versatile starter palette you can customize.";
@@ -801,7 +838,12 @@ function pickNeutralAccent(grayHexes) {
   return NEUTRAL_ACCENTS[seed];
 }
 
-function buildVariations(colors, mode) {
+function buildVariations(colors, mode, options) {
+  options = options || {};
+  const secondaryOverride = options.secondaryOverride || null;
+  const primaryOverride = options.primaryOverride || null;
+  const neutralLock = !!options.neutralLock;
+
   if (mode === 'grayscale') {
     const avgLum = colors.reduce((sum, c) => sum + relativeLuminance(c), 0) / colors.length;
     const ink = avgLum > 0.4 ? '#1a1a1a' : '#0d0d0d';
@@ -818,6 +860,35 @@ function buildVariations(colors, mode) {
         heading: font.heading, body: font.body, radius: font.radius
       };
     });
+  }
+
+  // Custom mode: user has chosen exact primary + secondary colors.
+  // Respect them as-is (including pure black/white/gray) - no accessibility
+  // saturation boosts or hue rotations that would distort a deliberate choice.
+  if (primaryOverride && secondaryOverride) {
+    let surface;
+    if (neutralLock) {
+      surface = '#f4f4f5';
+    } else {
+      const primaryLum = relativeLuminance(primaryOverride);
+      // lighten() degrades for near-black/near-white primaries (e.g. lighten(#000,46) -> mid-gray).
+      // Fall back to a subtle neutral surface in those cases.
+      surface = (primaryLum < 0.04 || primaryLum > 0.9) ? '#f4f4f5' : lighten(primaryOverride, 46);
+    }
+    const text = neutralLock ? '#0d0d0d' : '#1a1a1a';
+
+    return FONT_PAIRS.map((font) => ({
+      name: font.name,
+      primary: primaryOverride,
+      secondary: secondaryOverride,
+      background: '#ffffff',
+      surface: surface,
+      text: text,
+      textSecondary: '#5f5e5a',
+      heading: font.heading,
+      body: font.body,
+      radius: font.radius
+    }));
   }
 
   const sortedBySat = [...colors].sort((a,b) => {
@@ -843,9 +914,14 @@ function buildVariations(colors, mode) {
       p = darken(basePrimary, 4);
       s = rotateHue(basePrimary, -150);
     }
+
+    const surface = neutralLock ? '#f4f4f5' : lighten(p, 46);
+    const text = neutralLock ? '#0d0d0d' : '#1a1a1a';
+    const background = '#ffffff';
+
     return {
-      name: font.name, primary: p, secondary: s, background: '#ffffff',
-      surface: lighten(p, 46), text: '#1a1a1a', textSecondary: '#5f5e5a',
+      name: font.name, primary: p, secondary: s, background: background,
+      surface: surface, text: text, textSecondary: '#5f5e5a',
       heading: font.heading, body: font.body, radius: font.radius
     };
   });
