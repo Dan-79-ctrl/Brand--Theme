@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +7,7 @@
 <title>BrandTheme — Turn your logo into a website theme</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&family=Poppins:wght@400;500;700&family=Montserrat:wght@400;500;700&family=Roboto:wght@400;500;700&family=Playfair+Display:wght@400;500;700&family=Lora:wght@400;500&family=Merriweather:wght@400;700&family=Source+Sans+Pro:wght@400;500&family=Oswald:wght@400;500;700&family=Open+Sans:wght@400;500&family=DM+Serif+Display&family=DM+Sans:wght@400;500&family=Raleway:wght@400;500;700&family=Nunito+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #FAF8F3;
@@ -235,6 +236,14 @@
   .prev-card-desc { font-size: 13px; }
   #prev-footer { padding: 16px 22px; font-size: 12px; text-align: center; }
 
+  #prev-type-section { padding: 8px 22px 26px; border-top: 1px solid var(--line); }
+  .type-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin: 14px 0 10px; }
+  #prev-type-h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  #prev-type-h2 { font-size: 21px; font-weight: 700; margin-bottom: 6px; }
+  #prev-type-h3 { font-size: 17px; font-weight: 500; margin-bottom: 10px; }
+  #prev-type-body { font-size: 14px; line-height: 1.6; margin-bottom: 8px; max-width: 540px; }
+  #prev-type-small { font-size: 12px; }
+
   .export-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .export-btn {
     font-family: 'Inter', sans-serif;
@@ -248,10 +257,11 @@
     transition: border-color 0.15s ease;
   }
   .export-btn:hover { border-color: var(--accent-purple); }
+  #export-output-wrap { margin-top: 14px; }
   #export-output {
-    display: none;
-    margin-top: 14px;
+    margin: 0;
     padding: 16px;
+    padding-right: 70px;
     background: var(--ink);
     color: #F4F2FB;
     border-radius: 8px;
@@ -465,8 +475,15 @@
 
       <div id="variations-section">
         <div id="extraction-note" style="display:none; font-size:13px; padding:10px 14px; border-radius:8px; background:#F4F2FB; color:var(--ink-soft); margin-bottom:16px; border:1px solid var(--line);"></div>
+
         <div class="section-label">
-          <span class="title">Choose a theme variation</span>
+          <span class="title">Typography</span>
+          <span class="hint">Pick fonts independently from the color palette</span>
+        </div>
+        <select id="typography-select" style="width:100%; margin-bottom:24px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); font-family:'Inter', sans-serif; font-size:14px; cursor:pointer;"></select>
+
+        <div class="section-label">
+          <span class="title">Choose a color palette</span>
           <span class="hint">Click a row to preview</span>
         </div>
         <div id="variation-rows"></div>
@@ -486,6 +503,14 @@
             </div>
           </div>
           <div id="prev-cards"></div>
+          <div id="prev-type-section">
+            <div class="type-label">Typography</div>
+            <div id="prev-type-h1">Heading One</div>
+            <div id="prev-type-h2">Heading Two</div>
+            <div id="prev-type-h3">Heading Three</div>
+            <div id="prev-type-body">This is body text, set in your theme's body font. It's used for paragraphs, descriptions, and general content throughout the site.</div>
+            <div id="prev-type-small">Small text &amp; captions appear like this.</div>
+          </div>
           <div id="prev-footer">© 2026 Brand. All rights reserved.</div>
         </div>
 
@@ -499,7 +524,10 @@
           <button class="export-btn" id="export-elementor">Elementor / Custom CSS</button>
           <button class="export-btn" id="export-json">JSON</button>
         </div>
-        <pre id="export-output"></pre>
+        <div id="export-output-wrap" style="display:none; position:relative;">
+          <button class="export-btn" id="copy-export-btn" style="position:absolute; top:10px; right:10px; font-size:12px; padding:6px 12px;">Copy</button>
+          <pre id="export-output"></pre>
+        </div>
       </div>
     </div>
   </div>
@@ -584,13 +612,36 @@ const variationRows = document.getElementById('variation-rows');
 let currentTheme = null;
 let lastExtraction = null; // { colors, mode }
 
-const FONT_PAIRS = [
-  { name: 'Modern', heading: 'Poppins, sans-serif', body: 'Inter, sans-serif', radius: '10px' },
-  { name: 'Classic', heading: 'Georgia, serif', body: 'Georgia, serif', radius: '4px' },
-  { name: 'Minimal', heading: 'Helvetica, Arial, sans-serif', body: 'Helvetica, Arial, sans-serif', radius: '2px' },
-  { name: 'Bold', heading: 'Montserrat, sans-serif', body: 'Roboto, sans-serif', radius: '6px' },
-  { name: 'Elegant', heading: 'Playfair Display, serif', body: 'Lora, serif', radius: '2px' }
+// Color logic recipes: 5 distinct ways to derive primary/secondary/surface
+// from the extracted (or custom) base colors. Radius is bundled here since
+// it's part of the overall "shape" of a variation, independent of font choice.
+const COLOR_RECIPES = [
+  { name: 'Modern', radius: '10px' },
+  { name: 'Classic', radius: '4px' },
+  { name: 'Minimal', radius: '2px' },
+  { name: 'Bold', radius: '6px' },
+  { name: 'Elegant', radius: '2px' }
 ];
+
+// Typography pairings: selectable independently from the color recipe above.
+const TYPOGRAPHY_PAIRS = [
+  { name: 'Poppins + Inter', heading: 'Poppins, sans-serif', body: 'Inter, sans-serif' },
+  { name: 'Georgia (Classic)', heading: 'Georgia, serif', body: 'Georgia, serif' },
+  { name: 'Helvetica (Minimal)', heading: 'Helvetica, Arial, sans-serif', body: 'Helvetica, Arial, sans-serif' },
+  { name: 'Montserrat + Roboto', heading: 'Montserrat, sans-serif', body: 'Roboto, sans-serif' },
+  { name: 'Playfair Display + Lora', heading: 'Playfair Display, serif', body: 'Lora, serif' },
+  { name: 'Space Grotesk + Inter', heading: 'Space Grotesk, sans-serif', body: 'Inter, sans-serif' },
+  { name: 'Merriweather + Source Sans', heading: 'Merriweather, serif', body: 'Source Sans Pro, sans-serif' },
+  { name: 'Oswald + Open Sans', heading: 'Oswald, sans-serif', body: 'Open Sans, sans-serif' },
+  { name: 'DM Serif Display + DM Sans', heading: 'DM Serif Display, serif', body: 'DM Sans, sans-serif' },
+  { name: 'Raleway + Nunito Sans', heading: 'Raleway, sans-serif', body: 'Nunito Sans, sans-serif' }
+];
+
+// Kept for backwards-compat where buildVariations iterates "FONT_PAIRS" for
+// the 5 color recipes - radius lives here, font is applied separately.
+const FONT_PAIRS = COLOR_RECIPES;
+
+let selectedTypographyIndex = 0;
 
 const brandColorRow = document.getElementById('brand-color-row');
 const useCustomColor = document.getElementById('use-custom-color');
@@ -598,6 +649,21 @@ const customColorControls = document.getElementById('custom-color-controls');
 const customColorPicker = document.getElementById('custom-color-picker');
 const customSecondaryPicker = document.getElementById('custom-secondary-picker');
 const forceNeutralBw = document.getElementById('force-neutral-bw');
+const typographySelect = document.getElementById('typography-select');
+
+// Populate the typography dropdown
+TYPOGRAPHY_PAIRS.forEach((pair, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = pair.name;
+  typographySelect.appendChild(opt);
+});
+typographySelect.value = selectedTypographyIndex;
+
+typographySelect.addEventListener('change', () => {
+  selectedTypographyIndex = parseInt(typographySelect.value, 10);
+  if (lastExtraction) regenerateTheme();
+});
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -621,6 +687,8 @@ uploadZone.addEventListener('keydown', (e) => {
   }
 });
 
+let currentVariationIndex = 0;
+
 function handleFile(file) {
   uploadLabel.textContent = file.name;
   const img = new Image();
@@ -628,6 +696,7 @@ function handleFile(file) {
   img.onload = () => {
     const { colors, mode } = extractColors(img);
     lastExtraction = { colors, mode };
+    currentVariationIndex = 0;
 
     // Default the custom pickers to the extracted primary/secondary so they start near the logo's colors
     const sortedBySat = [...colors].sort((a,b) => {
@@ -667,7 +736,8 @@ function regenerateTheme() {
   renderVariations(variations);
   showExtractionNote(useCustomColor.checked ? 'custom' : mode);
   variationsSection.style.display = 'block';
-  selectVariation(0, variations);
+  const idx = Math.min(currentVariationIndex, variations.length - 1);
+  selectVariation(idx, variations);
 }
 
 useCustomColor.addEventListener('change', () => {
@@ -848,6 +918,7 @@ function buildVariations(colors, mode, options) {
   const secondaryOverride = options.secondaryOverride || null;
   const primaryOverride = options.primaryOverride || null;
   const neutralLock = !!options.neutralLock;
+  const typo = TYPOGRAPHY_PAIRS[selectedTypographyIndex] || TYPOGRAPHY_PAIRS[0];
 
   if (mode === 'grayscale') {
     const avgLum = colors.reduce((sum, c) => sum + relativeLuminance(c), 0) / colors.length;
@@ -862,7 +933,7 @@ function buildVariations(colors, mode, options) {
         primary: p, secondary: s, background: '#ffffff',
         surface: idx === 1 ? '#f0eee9' : '#f4f4f5',
         text: '#1a1a1a', textSecondary: '#5f5e5a',
-        heading: font.heading, body: font.body, radius: font.radius
+        heading: typo.heading, body: typo.body, radius: font.radius
       };
     });
   }
@@ -890,8 +961,8 @@ function buildVariations(colors, mode, options) {
       surface: surface,
       text: text,
       textSecondary: '#5f5e5a',
-      heading: font.heading,
-      body: font.body,
+      heading: typo.heading,
+      body: typo.body,
       radius: font.radius
     }));
   }
@@ -927,7 +998,7 @@ function buildVariations(colors, mode, options) {
     return {
       name: font.name, primary: p, secondary: s, background: background,
       surface: surface, text: text, textSecondary: '#5f5e5a',
-      heading: font.heading, body: font.body, radius: font.radius
+      heading: typo.heading, body: typo.body, radius: font.radius
     };
   });
 }
@@ -960,6 +1031,7 @@ function renderVariations(variations) {
 }
 
 function selectVariation(idx, variations) {
+  currentVariationIndex = idx;
   document.querySelectorAll('.variation-row').forEach((r, i) => {
     r.classList.toggle('selected', i === idx);
   });
@@ -1039,13 +1111,50 @@ function renderPreview() {
   footer.style.background = v.surface;
   footer.style.color = v.textSecondary;
   footer.style.fontFamily = v.body;
+
+  // Typography preview
+  const typeSection = document.getElementById('prev-type-section');
+  const typeLabel = document.querySelector('.type-label');
+  const typeH1 = document.getElementById('prev-type-h1');
+  const typeH2 = document.getElementById('prev-type-h2');
+  const typeH3 = document.getElementById('prev-type-h3');
+  const typeBody = document.getElementById('prev-type-body');
+  const typeSmall = document.getElementById('prev-type-small');
+
+  typeSection.style.background = v.background;
+  typeSection.style.borderTopColor = v.surface;
+  typeLabel.style.color = v.textSecondary;
+  typeLabel.style.fontFamily = v.body;
+  [typeH1, typeH2, typeH3].forEach(el => {
+    el.style.fontFamily = v.heading;
+    el.style.color = v.text;
+  });
+  typeBody.style.fontFamily = v.body;
+  typeBody.style.color = v.text;
+  typeSmall.style.fontFamily = v.body;
+  typeSmall.style.color = v.textSecondary;
 }
 
+let lastExportText = '';
+
 function showExport(text) {
+  const wrap = document.getElementById('export-output-wrap');
   const out = document.getElementById('export-output');
+  lastExportText = text;
   out.textContent = text;
-  out.style.display = 'block';
+  wrap.style.display = 'block';
+  const copyBtn = document.getElementById('copy-export-btn');
+  copyBtn.textContent = 'Copy';
 }
+
+document.getElementById('copy-export-btn').addEventListener('click', () => {
+  if (!lastExportText) return;
+  navigator.clipboard.writeText(lastExportText).then(() => {
+    const copyBtn = document.getElementById('copy-export-btn');
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+  });
+});
 
 document.getElementById('export-css').addEventListener('click', () => {
   if (!currentTheme) return;
